@@ -173,12 +173,15 @@ export async function fetchWeather(location: GeoLocation): Promise<WeatherData> 
     if (matching) {
       const hCode = data.hourly.weather_code[matching.index];
       const hInfo = getWeatherInfo(hCode);
+      const turnHour = parseInt(matching.time.split('T')[1].split(':')[0], 10);
+      const turnIsDay = turnHour >= 6 && turnHour < 19;
       turns.push({
         label: turn.label,
         condition: hInfo.condition,
         temp: Math.round(data.hourly.temperature_2m[matching.index]),
         rainProb: data.hourly.precipitation_probability[matching.index] || 0,
         time: turn.label,
+        isDay: turnIsDay,
       });
     }
   }
@@ -194,6 +197,7 @@ export async function fetchWeather(location: GeoLocation): Promise<WeatherData> 
       temp: Math.round(data.daily.temperature_2m_max[d]),
       rainProb: data.daily.precipitation_probability_max[d] || 0,
       time: data.daily.time[d],
+      isDay: true,
     });
   }
 
@@ -222,8 +226,9 @@ export async function fetchWeather(location: GeoLocation): Promise<WeatherData> 
     dewPoint = data.hourly.dew_point_2m[currentHourlyIdx] || 0;
   }
 
+  const isDay = data.current.is_day === 1;
   const rawUv = Math.round(data.daily.uv_index_max[0] || 0);
-  const adjustedUv = adjustUvForCondition(rawUv, info.condition);
+  const adjustedUv = isDay ? adjustUvForCondition(rawUv, info.condition) : 0;
 
   const current: CurrentWeather = {
     temp: Math.round(data.current.temperature_2m),
@@ -240,7 +245,7 @@ export async function fetchWeather(location: GeoLocation): Promise<WeatherData> 
     uvLabel: uvLabel(adjustedUv),
     precipitation24h: Math.round(precip24h * 10) / 10,
     dewPoint: Math.round(dewPoint),
-    isDay: data.current.is_day === 1,
+    isDay,
   };
 
   const hourly: HourlyForecast[] = [];
@@ -250,11 +255,14 @@ export async function fetchWeather(location: GeoLocation): Promise<WeatherData> 
     const hCode = data.hourly.weather_code[hIdx];
     const hInfo = getWeatherInfo(hCode);
     const hStr = todayHours[i].time.split('T')[1];
+    const hHour = parseInt(hStr.split(':')[0], 10);
+    const hIsDay = hHour >= 6 && hHour < 19;
     hourly.push({
       hour: hStr,
       temp: Math.round(data.hourly.temperature_2m[hIdx]),
       condition: hInfo.condition,
       rainProb: data.hourly.precipitation_probability[hIdx] || 0,
+      isDay: hIsDay,
     });
   }
 

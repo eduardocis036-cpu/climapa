@@ -1,17 +1,9 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { Loader2 } from 'lucide-react';
-import type { GeoLocation, SavedLocation, WeatherData, WeatherAlert } from '@/types';
-import { getCurrentPosition, reverseGeocode } from '@/lib/geocode';
-import { fetchWeather, generateAlert, getCurrentTurnLabel } from '@/lib/weatherApi';
-import {
-  loadSavedLocations,
-  saveLocations,
-  loadActiveIndex,
-  saveActiveIndex,
-  createSavedLocation,
-} from '@/lib/storage';
+import { useState } from 'react';
+import { Loader2, WifiOff } from 'lucide-react';
+import { useWeather } from '@/context/WeatherContext';
+import { useSwipeNavigation } from '@/hooks/useSwipeNavigation';
+import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import DynamicBackground from '@/components/DynamicBackground';
-import SearchBar from '@/components/SearchBar';
 import Header from '@/components/Header';
 import AlertCard from '@/components/AlertCard';
 import ForecastStrip from '@/components/ForecastStrip';
@@ -19,177 +11,97 @@ import RadarMap from '@/components/RadarMap';
 import MetricsGrid from '@/components/MetricsGrid';
 import BottomBar from '@/components/BottomBar';
 import SavedLocations from '@/components/SavedLocations';
+import SearchPreviewModal from '@/components/SearchPreviewModal';
 
 export default function App() {
-  const [locations, setLocations] = useState<SavedLocation[]>(loadSavedLocations);
-  const [activeIndex, setActiveIndex] = useState(loadActiveIndex);
-  const [weather, setWeather] = useState<WeatherData | null>(null);
-  const [alert, setAlert] = useState<WeatherAlert | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [gpsLoading, setGpsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [showSaved, setShowSaved] = useState(false);
-  const [showSearch, setShowSearch] = useState(false);
+  const {
+    locations,
+    activeIndex,
+    currentLocation,
+    weather,
+    alert,
+    loading,
+    refreshing,
+    refreshError,
+    error,
+    gpsError,
+    gpsLoading,
+    currentTurn,
+    showSaved,
+    showSearch,
+    setActiveIndex,
+    setShowSaved,
+    setShowSearch,
+    refresh,
+    handleUseGPS,
+    handleAddLocation,
+    handleRemoveLocation,
+    handleSetHome,
+    handleSelectFromList,
+  } = useWeather();
+
   const [radarFullscreen, setRadarFullscreen] = useState(false);
 
-  const touchStartX = useRef(0);
-  const touchEndX = useRef(0);
+  const swipe = useSwipeNavigation({
+    onSwipeLeft: () => {
+      if (activeIndex < locations.length - 1) setActiveIndex(activeIndex + 1);
+    },
+    onSwipeRight: () => {
+      if (activeIndex > 0) setActiveIndex(activeIndex - 1);
+    },
+  });
 
-  const currentLocation = locations[activeIndex] || locations[0];
-
-  const loadWeather = useCallback(async (loc: GeoLocation) => {
-    setLoading(true);
-    setError(null);
-    setWeather(null);
-    try {
-      const data = await fetchWeather(loc);
-      setWeather(data);
-      setAlert(generateAlert(data));
-    } catch {
-      setError('No se pudieron cargar los datos del clima. Intenta de nuevo.');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (currentLocation) {
-      loadWeather(currentLocation);
-    }
-  }, [currentLocation, loadWeather]);
-
-  useEffect(() => {
-    saveLocations(locations);
-  }, [locations]);
-
-  useEffect(() => {
-    saveActiveIndex(activeIndex);
-  }, [activeIndex]);
-
-  const handleSelectLocation = (loc: GeoLocation) => {
-    const newSaved = createSavedLocation(loc);
-    const updated = [...locations];
-    const existIdx = updated.findIndex(
-      (l) => Math.abs(l.lat - loc.lat) < 0.01 && Math.abs(l.lon - loc.lon) < 0.01
-    );
-    if (existIdx >= 0) {
-      setActiveIndex(existIdx);
-    } else {
-      updated.push(newSaved);
-      setLocations(updated);
-      setActiveIndex(updated.length - 1);
-    }
-    setShowSearch(false);
-  };
-
-  const handleUseGPS = async () => {
-    setGpsLoading(true);
-    setError(null);
-    try {
-      const position = await getCurrentPosition();
-      const { latitude, longitude } = position.coords;
-      const loc = await reverseGeocode(latitude, longitude);
-      const existIdx = locations.findIndex(
-        (l) => Math.abs(l.lat - latitude) < 0.01 && Math.abs(l.lon - longitude) < 0.01
-      );
-      if (existIdx >= 0) {
-        setActiveIndex(existIdx);
-      } else {
-        const newLoc = createSavedLocation(loc, { isMyLocation: true });
-        const updated = locations.map((l) => ({ ...l, isMyLocation: false }));
-        updated.push(newLoc);
-        setLocations(updated);
-        setActiveIndex(updated.length - 1);
-      }
-    } catch {
-      setActiveIndex(0);
-    } finally {
-      setGpsLoading(false);
-    }
-  };
-
-  const handleAddLocation = (loc: { name: string; displayName: string; lat: number; lon: number }) => {
-    const existIdx = locations.findIndex(
-      (l) => Math.abs(l.lat - loc.lat) < 0.01 && Math.abs(l.lon - loc.lon) < 0.01
-    );
-    if (existIdx >= 0) {
-      setActiveIndex(existIdx);
-    } else {
-      const newLoc = createSavedLocation(loc);
-      setLocations([...locations, newLoc]);
-      setActiveIndex(locations.length);
-    }
-  };
-
-  const handleRemoveLocation = (id: string) => {
-    const updated = locations.filter((l) => l.id !== id);
-    if (updated.length === 0) return;
-    setLocations(updated);
-    if (activeIndex >= updated.length) {
-      setActiveIndex(updated.length - 1);
-    }
-  };
-
-  const handleSetHome = (id: string) => {
-    setLocations(locations.map((l) => ({ ...l, isHome: l.id === id })));
-  };
-
-  const handleSelectFromList = (index: number) => {
-    setActiveIndex(index);
-  };
-
-  const handleTouchStart = (e: React.TouchEvent) => {
-    touchStartX.current = e.touches[0].clientX;
-  };
-
-  const handleTouchEnd = (e: React.TouchEvent) => {
-    touchEndX.current = e.changedTouches[0].clientX;
-    const diff = touchStartX.current - touchEndX.current;
-    const threshold = 80;
-
-    if (Math.abs(diff) > threshold) {
-      if (diff > 0 && activeIndex < locations.length - 1) {
-        setActiveIndex(activeIndex + 1);
-      } else if (diff < 0 && activeIndex > 0) {
-        setActiveIndex(activeIndex - 1);
-      }
-    }
-  };
+  const pullToRefresh = usePullToRefresh({
+    onRefresh: refresh,
+    enabled: !showSaved && !showSearch,
+  });
 
   const isDay = weather ? weather.current.isDay : true;
   const condition = weather?.current.condition || 'cloudy';
-  const currentTurn = getCurrentTurnLabel();
 
   return (
     <div
       className="min-h-screen text-white relative overflow-hidden"
-      onTouchStart={handleTouchStart}
-      onTouchEnd={handleTouchEnd}
+      onTouchStart={(e) => {
+        swipe.onTouchStart(e);
+        pullToRefresh.onTouchStart(e);
+      }}
+      onTouchMove={pullToRefresh.onTouchMove}
+      onTouchEnd={(e) => {
+        swipe.onTouchEnd(e);
+        pullToRefresh.onTouchEnd(e);
+      }}
     >
       <DynamicBackground condition={condition} isDay={isDay} />
 
-      <div className="max-w-md mx-auto min-h-screen flex flex-col">
-        {/* Search bar - only shown when toggled */}
-        {showSearch && (
-          <div className="sticky top-0 z-40 px-4 pt-4 pb-2 animate-fade-in">
-            <SearchBar
-              currentLocationName={currentLocation?.name || ''}
-              onSelectLocation={handleSelectLocation}
-              onUseGPS={handleUseGPS}
-              gpsLoading={gpsLoading}
-            />
+      {refreshing && (
+        <div className="fixed top-0 left-0 right-0 z-50 flex justify-center pt-3 animate-fade-in">
+          <div className="glass-card rounded-full px-4 py-2 flex items-center gap-2">
+            <Loader2 size={16} className="animate-spin text-white" />
+            <span className="text-xs text-white/80 font-medium">Actualizando...</span>
           </div>
-        )}
-
-        {/* Page indicator */}
-        <div className="flex items-center justify-center gap-2 pt-4 pb-1">
-          <span className="text-xs text-white/50 font-medium">
-            {activeIndex + 1} de {locations.length}
-          </span>
         </div>
+      )}
 
-        {/* Content */}
-        <div className="flex-1 flex flex-col gap-3 px-4 pb-24 overflow-y-auto no-scrollbar">
+      {refreshError && !refreshing && (
+        <div className="fixed top-0 left-0 right-0 z-50 flex justify-center pt-3 animate-fade-in">
+          <div className="glass-card-alert rounded-full px-4 py-2 flex items-center gap-2 border border-orange-400/40">
+            <WifiOff size={14} className="text-orange-300" strokeWidth={1.5} />
+            <span className="text-xs text-white/80 font-medium">{refreshError}</span>
+          </div>
+        </div>
+      )}
+
+      {gpsError && (
+        <div className="fixed top-0 left-0 right-0 z-50 flex justify-center pt-3 animate-fade-in">
+          <div className="glass-card-alert rounded-full px-4 py-2 flex items-center gap-2 border border-orange-400/40">
+            <span className="text-xs text-white/80 font-medium">{gpsError}</span>
+          </div>
+        </div>
+      )}
+
+      <div className="max-w-md mx-auto min-h-screen flex flex-col">
+        <div className="flex-1 flex flex-col gap-3 px-4 pt-6 pb-24 overflow-y-auto no-scrollbar">
           {loading && !weather && (
             <div className="flex-1 flex flex-col items-center justify-center gap-3 text-white/60">
               <Loader2 size={32} className="animate-spin" />
@@ -201,7 +113,7 @@ export default function App() {
             <div className="flex-1 flex flex-col items-center justify-center gap-3 text-center px-6">
               <p className="text-white/70 text-sm">{error}</p>
               <button
-                onClick={() => currentLocation && loadWeather(currentLocation)}
+                onClick={() => currentLocation && refresh()}
                 className="glass-card rounded-full px-5 py-2 text-sm font-medium text-white hover:bg-white/15 transition-colors"
               >
                 Reintentar
@@ -215,7 +127,11 @@ export default function App() {
 
               {alert && <AlertCard alert={alert} />}
 
-              <ForecastStrip turns={weather.turns} hourly={weather.hourly} currentTurn={currentTurn} />
+              <ForecastStrip
+                turns={weather.turns}
+                hourly={weather.hourly}
+                currentTurn={currentTurn}
+              />
 
               <RadarMap
                 lat={currentLocation.lat}
@@ -244,17 +160,15 @@ export default function App() {
         </div>
       </div>
 
-      {/* Bottom floating bar */}
       <BottomBar
-        total={locations.length}
+        locations={locations}
         activeIndex={activeIndex}
-        onAdd={() => setShowSearch(!showSearch)}
+        onAdd={() => setShowSearch(true)}
         onList={() => setShowSaved(true)}
         onGPS={handleUseGPS}
         gpsLoading={gpsLoading}
       />
 
-      {/* Saved locations modal */}
       {showSaved && (
         <SavedLocations
           locations={locations}
@@ -264,6 +178,15 @@ export default function App() {
           onRemove={handleRemoveLocation}
           onSetHome={handleSetHome}
           onClose={() => setShowSaved(false)}
+          onUseGPS={handleUseGPS}
+          gpsLoading={gpsLoading}
+        />
+      )}
+
+      {showSearch && (
+        <SearchPreviewModal
+          onClose={() => setShowSearch(false)}
+          onAdd={handleAddLocation}
           onUseGPS={handleUseGPS}
           gpsLoading={gpsLoading}
         />

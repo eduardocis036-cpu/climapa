@@ -5,6 +5,8 @@ interface Props {
   isDay: boolean;
 }
 
+const MAX_RAIN_DROPS = 18;
+
 export default function DynamicBackground({ condition, isDay }: Props) {
   const gradient = useMemo(() => {
     if (!isDay) {
@@ -36,7 +38,7 @@ export default function DynamicBackground({ condition, isDay }: Props) {
 
   const rainDrops = useMemo(() => {
     if (!showRain) return [];
-    return Array.from({ length: 40 }, (_, i) => ({
+    return Array.from({ length: MAX_RAIN_DROPS }, (_, i) => ({
       id: i,
       left: Math.random() * 100,
       delay: Math.random() * 3,
@@ -58,7 +60,7 @@ export default function DynamicBackground({ condition, isDay }: Props) {
       <div className="absolute inset-0 opacity-40" style={{ background: cloudOverlay }} />
 
       {showRain && (
-        <div className="absolute inset-0">
+        <div className="absolute inset-0" style={{ transform: 'translateZ(0)' }}>
           {rainDrops.map((drop) => (
             <div
               key={drop.id}
@@ -68,6 +70,8 @@ export default function DynamicBackground({ condition, isDay }: Props) {
                 top: '-20px',
                 animation: `rain-fall ${drop.duration}s linear ${drop.delay}s infinite`,
                 opacity: drop.opacity,
+                transform: 'translateZ(0)',
+                willChange: 'transform, opacity',
               }}
             />
           ))}

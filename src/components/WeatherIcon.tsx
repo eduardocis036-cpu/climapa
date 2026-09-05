@@ -1,7 +1,9 @@
 import {
   Sun,
+  Moon,
   Cloud,
   CloudSun,
+  CloudMoon,
   CloudRain,
   CloudLightning,
   CloudFog,
@@ -13,12 +15,13 @@ interface Props {
   condition: string;
   size?: number;
   className?: string;
+  isDay?: boolean;
 }
 
-export default function WeatherIcon({ condition, size = 24, className = '' }: Props) {
+export default function WeatherIcon({ condition, size = 24, className = '', isDay = true }: Props) {
   const iconMap: Record<string, typeof Sun> = {
-    clear: Sun,
-    'partly-cloudy': CloudSun,
+    clear: isDay ? Sun : Moon,
+    'partly-cloudy': isDay ? CloudSun : CloudMoon,
     cloudy: Cloud,
     rain: CloudRain,
     thunderstorm: CloudLightning,

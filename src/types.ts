@@ -35,6 +35,7 @@ export interface ForecastTurn {
   temp: number;
   rainProb: number;
   time: string;
+  isDay: boolean;
 }
 
 export interface HourlyForecast {
@@ -42,6 +43,7 @@ export interface HourlyForecast {
   temp: number;
   condition: string;
   rainProb: number;
+  isDay: boolean;
 }
 
 export interface DailyForecast {

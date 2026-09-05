@@ -22,11 +22,19 @@ export default function HourlyForecastBar({ hourly }: Props) {
   if (displayHours.length === 0) return null;
 
   return (
-    <div className="mt-3 pt-3 border-t border-white/10">
+    <div
+      className="mt-3 pt-3 border-t border-white/10"
+      onTouchStart={(e) => e.stopPropagation()}
+      onTouchMove={(e) => e.stopPropagation()}
+      onTouchEnd={(e) => e.stopPropagation()}
+    >
       <h3 className="text-xs font-semibold text-white/50 uppercase tracking-wide mb-2 px-1">
         Variacion por horas
       </h3>
-      <div className="flex gap-1 overflow-x-auto no-scrollbar pb-1">
+      <div
+        className="flex gap-1 overflow-x-auto no-scrollbar pb-1"
+        style={{ touchAction: 'pan-x' }}
+      >
         {displayHours.map((h, i) => {
           const hHour = parseInt(h.hour.split(':')[0], 10);
           const isNow = i === 0;
@@ -39,7 +47,7 @@ export default function HourlyForecastBar({ hourly }: Props) {
               }`}
             >
               <span className="text-[10px] text-white/50 font-medium">{label}</span>
-              <WeatherIcon condition={h.condition} size={20} className="text-white/80" />
+              <WeatherIcon condition={h.condition} size={20} isDay={h.isDay} className="text-white/80" />
               <span className="text-xs text-blue-300/70 font-medium">{h.rainProb}%</span>
               <span className="text-xs font-semibold text-white">{h.temp}°</span>
             </div>

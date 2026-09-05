@@ -8,13 +8,30 @@ function generateId(): string {
   return `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
 }
 
+function isValidSavedLocation(obj: unknown): obj is SavedLocation {
+  if (typeof obj !== 'object' || obj === null) return false;
+  const o = obj as Record<string, unknown>;
+  return (
+    typeof o.id === 'string' &&
+    typeof o.name === 'string' &&
+    typeof o.displayName === 'string' &&
+    typeof o.lat === 'number' &&
+    typeof o.lon === 'number' &&
+    typeof o.isHome === 'boolean' &&
+    typeof o.isMyLocation === 'boolean'
+  );
+}
+
 export function loadSavedLocations(): SavedLocation[] {
   try {
     const saved = localStorage.getItem(LOCATIONS_KEY);
     if (saved) {
-      const parsed = JSON.parse(saved) as SavedLocation[];
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        return parsed;
+      const parsed = JSON.parse(saved);
+      if (Array.isArray(parsed)) {
+        const valid = parsed.filter(isValidSavedLocation);
+        if (valid.length > 0) {
+          return valid;
+        }
       }
     }
   } catch {

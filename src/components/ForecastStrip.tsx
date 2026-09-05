@@ -14,7 +14,13 @@ export default function ForecastStrip({ turns, hourly, currentTurn }: Props) {
       <h2 className="text-xs font-semibold text-white/50 uppercase tracking-wide mb-3 px-1">
         Pronostico por turnos
       </h2>
-      <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
+      <div
+        className="flex gap-2 overflow-x-auto no-scrollbar pb-1"
+        style={{ touchAction: 'pan-x' }}
+        onTouchStart={(e) => e.stopPropagation()}
+        onTouchMove={(e) => e.stopPropagation()}
+        onTouchEnd={(e) => e.stopPropagation()}
+      >
         {turns.map((turn, i) => {
           const isCurrent = turn.label === currentTurn;
           return (
@@ -30,7 +36,7 @@ export default function ForecastStrip({ turns, hourly, currentTurn }: Props) {
               {isCurrent && (
                 <span className="w-1 h-1 rounded-full bg-blue-400 -mt-1" />
               )}
-              <WeatherIcon condition={turn.condition} size={28} className="text-white/90" />
+              <WeatherIcon condition={turn.condition} size={28} isDay={turn.isDay} className="text-white/90" />
               <span className="text-xs text-blue-300/80 font-medium">{turn.rainProb}%</span>
               <span className="text-base font-semibold text-white">{turn.temp}°</span>
             </div>

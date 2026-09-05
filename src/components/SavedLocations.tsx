@@ -1,10 +1,9 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { X, Search, MapPin, Loader2, House, Plus, Trash2, Navigation } from 'lucide-react';
 import type { SavedLocation, WeatherData } from '@/types';
 import { searchLocations } from '@/lib/geocode';
 import { fetchWeather } from '@/lib/weatherApi';
 import WeatherIcon from './WeatherIcon';
-import DynamicBackground from './DynamicBackground';
 
 interface Props {
   locations: SavedLocation[];
@@ -24,6 +23,23 @@ interface LocationPreview {
   loading: boolean;
 }
 
+const STATIC_GRADIENTS: Record<string, string> = {
+  clear: 'linear-gradient(180deg, #1a4a7a 0%, #2a6ba8 30%, #4a8bc2 100%)',
+  'partly-cloudy': 'linear-gradient(180deg, #2a4a6a 0%, #3a5a7a 40%, #5a7a9a 100%)',
+  cloudy: 'linear-gradient(180deg, #2a3344 0%, #3a4458 40%, #4a5568 100%)',
+  rain: 'linear-gradient(180deg, #1a2438 0%, #2a3a52 40%, #3a4a68 100%)',
+  drizzle: 'linear-gradient(180deg, #1a2438 0%, #2a3a52 40%, #3a4a68 100%)',
+  thunderstorm: 'linear-gradient(180deg, #0e1525 0%, #1a2238 40%, #2a2e48 100%)',
+  fog: 'linear-gradient(180deg, #2a3340 0%, #3a4450 40%, #4a5560 100%)',
+  snow: 'linear-gradient(180deg, #2a3a4a 0%, #3a4a5a 40%, #5a6a7a 100%)',
+  night: 'linear-gradient(180deg, #0a0e1a 0%, #141c2e 40%, #1a2336 100%)',
+};
+
+function getStaticGradient(condition: string, isDay: boolean): string {
+  if (!isDay) return STATIC_GRADIENTS.night;
+  return STATIC_GRADIENTS[condition] || STATIC_GRADIENTS.cloudy;
+}
+
 export default function SavedLocations({
   locations,
   activeIndex,
@@ -40,27 +56,64 @@ export default function SavedLocations({
   const [searching, setSearching] = useState(false);
   const [previews, setPreviews] = useState<LocationPreview[]>([]);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const weatherCacheRef = useRef<Map<string, WeatherData>>(new Map());
+
+  const locationKey = useMemo(
+    () => locations.map((l) => `${l.id}:${l.lat}:${l.lon}`).join('|'),
+    [locations]
+  );
 
   useEffect(() => {
     let cancelled = false;
     const loadPreviews = async () => {
-      const loaded: LocationPreview[] = await Promise.all(
-        locations.map(async (loc) => {
-          try {
-            const w = await fetchWeather(loc);
-            return { location: loc, weather: w, loading: false };
-          } catch {
-            return { location: loc, weather: null, loading: false };
+      const cache = weatherCacheRef.current;
+      const toFetch: SavedLocation[] = [];
+
+      for (const loc of locations) {
+        const key = `${loc.lat}:${loc.lon}`;
+        if (!cache.has(key)) {
+          toFetch.push(loc);
+        }
+      }
+
+      const initial: LocationPreview[] = locations.map((loc) => {
+        const key = `${loc.lat}:${loc.lon}`;
+        const cached = cache.get(key);
+        return { location: loc, weather: cached || null, loading: !cached };
+      });
+      if (!cancelled) setPreviews(initial);
+
+      if (toFetch.length > 0) {
+        const fetched = await Promise.all(
+          toFetch.map(async (loc) => {
+            try {
+              const w = await fetchWeather(loc);
+              return { loc, w };
+            } catch {
+              return { loc, w: null };
+            }
+          })
+        );
+        if (cancelled) return;
+        for (const { loc, w } of fetched) {
+          if (w) {
+            cache.set(`${loc.lat}:${loc.lon}`, w);
           }
-        })
-      );
-      if (!cancelled) setPreviews(loaded);
+        }
+        const updated: LocationPreview[] = locations.map((loc) => {
+          const key = `${loc.lat}:${loc.lon}`;
+          const w = cache.get(key) || null;
+          return { location: loc, weather: w, loading: false };
+        });
+        if (!cancelled) setPreviews(updated);
+      }
     };
     loadPreviews();
     return () => {
       cancelled = true;
     };
-  }, [locations]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [locationKey]);
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -88,7 +141,6 @@ export default function SavedLocations({
   return (
     <div className="fixed inset-0 z-[90] bg-black/60 animate-fade-in flex flex-col">
       <div className="glass-card rounded-t-3xl w-full max-w-md mx-auto h-full flex flex-col animate-fade-in-up overflow-hidden">
-        {/* Header */}
         <div className="flex items-center justify-between p-4 pb-2">
           <h2 className="text-lg font-bold text-white">Ubicaciones</h2>
           <button onClick={onClose} className="glass-card rounded-full p-2 text-white/70 hover:text-white">
@@ -96,7 +148,6 @@ export default function SavedLocations({
           </button>
         </div>
 
-        {/* Location cards */}
         <div className="flex-1 overflow-y-auto no-scrollbar px-4 space-y-3 pb-2">
           {previews.map((preview, i) => {
             const loc = preview.location;
@@ -117,10 +168,17 @@ export default function SavedLocations({
                 }`}
                 style={{ height: '120px' }}
               >
-                {/* Dynamic background per location */}
-                <div className="absolute inset-0">
-                  <DynamicBackground condition={condition} isDay={isDay} />
-                </div>
+                <div
+                  className="absolute inset-0"
+                  style={{ background: getStaticGradient(condition, isDay) }}
+                />
+                <div
+                  className="absolute inset-0 opacity-30"
+                  style={{
+                    background:
+                      'radial-gradient(ellipse at 20% 0%, rgba(255,255,255,0.08) 0%, transparent 50%)',
+                  }}
+                />
 
                 <div className="relative p-4 flex items-center justify-between h-full">
                   <div className="flex flex-col gap-0.5">
@@ -148,7 +206,7 @@ export default function SavedLocations({
                     {w ? (
                       <>
                         <div className="flex items-center gap-2">
-                          <WeatherIcon condition={condition} size={28} className="text-white/90" />
+                          <WeatherIcon condition={condition} size={28} isDay={isDay} className="text-white/90" />
                           <span className="text-4xl font-extralight text-white text-shadow-sm">
                             {w.current.temp}°
                           </span>
@@ -164,7 +222,6 @@ export default function SavedLocations({
                   </div>
                 </div>
 
-                {/* Action buttons */}
                 <div className="absolute top-2 right-2 flex gap-1">
                   {!loc.isMyLocation && (
                     <button
@@ -204,7 +261,6 @@ export default function SavedLocations({
           )}
         </div>
 
-        {/* Search bar at bottom */}
         <div className="p-4 pt-2 border-t border-white/10">
           <div className="glass-input flex items-center gap-2 rounded-full px-4 py-2.5">
             <Search size={18} className="text-white/60 shrink-0" strokeWidth={1.5} />
