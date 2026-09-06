@@ -18,7 +18,7 @@ export const PANAMA_LOCATIONS: GeoLocation[] = [
   { name: 'El Valle de Antón', displayName: 'El Valle de Antón, Coclé', lat: 8.6000, lon: -80.1167 },
   { name: 'Colón', displayName: 'Colón, Colón', lat: 9.3592, lon: -79.9000 },
   { name: 'La Chorrera', displayName: 'La Chorrera, Panamá Oeste', lat: 8.8800, lon: -79.7833 },
-  { name: 'Chorrera', displayName: 'Arraiján, Panamá Oeste', lat: 8.9667, lon: -79.7667 },
+  { name: 'Arraiján', displayName: 'Arraiján, Panamá Oeste', lat: 8.9667, lon: -79.7667 },
   { name: 'Bocas del Toro', displayName: 'Bocas del Toro, Bocas del Toro', lat: 9.3389, lon: -82.2167 },
   { name: 'Changuinola', displayName: 'Changuinola, Bocas del Toro', lat: 9.4333, lon: -82.5167 },
   { name: 'Aguadulce', displayName: 'Aguadulce, Coclé', lat: 8.2333, lon: -80.4833 },

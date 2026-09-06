@@ -205,51 +205,45 @@ export function WeatherProvider({ children }: { children: ReactNode }) {
       const position = await getCurrentPosition();
       const { latitude, longitude } = position.coords;
       const loc = await reverseGeocode(latitude, longitude);
-      setLocations((prev) => {
-        const existIdx = prev.findIndex(
-          (l) => Math.abs(l.lat - latitude) < 0.01 && Math.abs(l.lon - longitude) < 0.01
-        );
-        if (existIdx >= 0) {
-          setActiveIndex(existIdx);
-          return prev;
-        }
+      const existIdx = locations.findIndex(
+        (l) => Math.abs(l.lat - latitude) < 0.01 && Math.abs(l.lon - longitude) < 0.01
+      );
+      if (existIdx >= 0) {
+        setActiveIndex(existIdx);
+      } else {
         const newLoc = createSavedLocation(loc, { isMyLocation: true });
-        const updated = prev.map((l) => ({ ...l, isMyLocation: false }));
+        const updated = locations.map((l) => ({ ...l, isMyLocation: false }));
         updated.push(newLoc);
+        setLocations(updated);
         setActiveIndex(updated.length - 1);
-        return updated;
-      });
+      }
     } catch (err) {
       setGpsError(getGpsErrorMessage(err));
       setActiveIndex(0);
     } finally {
       setGpsLoading(false);
     }
-  }, []);
+  }, [locations]);
 
   const handleAddLocation = useCallback((loc: GeoLocation) => {
-    setLocations((prev) => {
-      const existIdx = prev.findIndex(
-        (l) => Math.abs(l.lat - loc.lat) < 0.01 && Math.abs(l.lon - loc.lon) < 0.01
-      );
-      if (existIdx >= 0) {
-        setActiveIndex(existIdx);
-        return prev;
-      }
-      const newLoc = createSavedLocation(loc);
-      setActiveIndex(prev.length);
-      return [...prev, newLoc];
-    });
-  }, []);
+    const existIdx = locations.findIndex(
+      (l) => Math.abs(l.lat - loc.lat) < 0.01 && Math.abs(l.lon - loc.lon) < 0.01
+    );
+    if (existIdx >= 0) {
+      setActiveIndex(existIdx);
+      return;
+    }
+    const newLoc = createSavedLocation(loc);
+    setLocations([...locations, newLoc]);
+    setActiveIndex(locations.length);
+  }, [locations]);
 
   const handleRemoveLocation = useCallback((id: string) => {
-    setLocations((prev) => {
-      const updated = prev.filter((l) => l.id !== id);
-      if (updated.length === 0) return prev;
-      setActiveIndex((curr) => (curr >= updated.length ? updated.length - 1 : curr));
-      return updated;
-    });
-  }, []);
+    const updated = locations.filter((l) => l.id !== id);
+    if (updated.length === 0) return;
+    setLocations(updated);
+    setActiveIndex((curr) => (curr >= updated.length ? updated.length - 1 : curr));
+  }, [locations]);
 
   const handleSetHome = useCallback((id: string) => {
     setLocations((prev) => prev.map((l) => ({ ...l, isHome: l.id === id })));
