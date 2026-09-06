@@ -1,8 +1,10 @@
-import type { SavedLocation } from '@/types';
+import type { SavedLocation, WeatherData } from '@/types';
 import { DEFAULT_LOCATION } from '@/config/panamaLocations';
 
 const LOCATIONS_KEY = 'panama_weather_saved_locations';
 const ACTIVE_KEY = 'panama_weather_active_index';
+const WEATHER_KEY = 'panama_weather_last_weather';
+const LAST_FETCH_KEY = 'panama_weather_last_fetch';
 
 function generateId(): string {
   return `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
@@ -71,6 +73,50 @@ export function loadActiveIndex(): number {
 export function saveActiveIndex(idx: number): void {
   try {
     localStorage.setItem(ACTIVE_KEY, idx.toString());
+  } catch {
+    // ignore
+  }
+}
+
+export function loadSavedWeather(): WeatherData | null {
+  try {
+    const raw = localStorage.getItem(WEATHER_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === 'object' && parsed.current) {
+        return parsed as WeatherData;
+      }
+    }
+  } catch {
+    // ignore
+  }
+  return null;
+}
+
+export function saveWeather(data: WeatherData): void {
+  try {
+    localStorage.setItem(WEATHER_KEY, JSON.stringify(data));
+  } catch {
+    // ignore
+  }
+}
+
+export function loadLastFetch(): number {
+  try {
+    const raw = localStorage.getItem(LAST_FETCH_KEY);
+    if (raw !== null) {
+      const n = parseInt(raw, 10);
+      if (!isNaN(n) && n > 0) return n;
+    }
+  } catch {
+    // ignore
+  }
+  return 0;
+}
+
+export function saveLastFetch(timestamp: number): void {
+  try {
+    localStorage.setItem(LAST_FETCH_KEY, timestamp.toString());
   } catch {
     // ignore
   }

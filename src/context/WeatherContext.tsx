@@ -17,6 +17,10 @@ import {
   loadActiveIndex,
   saveActiveIndex,
   createSavedLocation,
+  loadSavedWeather,
+  saveWeather,
+  loadLastFetch,
+  saveLastFetch,
 } from '@/lib/storage';
 
 const POLL_INTERVAL = 10 * 60 * 1000;
@@ -75,11 +79,16 @@ function getGpsErrorMessage(err: unknown): string {
 }
 
 export function WeatherProvider({ children }: { children: ReactNode }) {
+  const savedWeather = loadSavedWeather();
+  const savedLastFetch = loadLastFetch();
+
   const [locations, setLocations] = useState<SavedLocation[]>(loadSavedLocations);
   const [activeIndex, setActiveIndex] = useState(loadActiveIndex);
-  const [weather, setWeather] = useState<WeatherData | null>(null);
-  const [alert, setAlert] = useState<WeatherAlert | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [weather, setWeather] = useState<WeatherData | null>(savedWeather);
+  const [alert, setAlert] = useState<WeatherAlert | null>(
+    savedWeather ? generateAlert(savedWeather) : null
+  );
+  const [loading, setLoading] = useState(savedWeather ? false : true);
   const [refreshing, setRefreshing] = useState(false);
   const [refreshError, setRefreshError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -89,7 +98,7 @@ export function WeatherProvider({ children }: { children: ReactNode }) {
   const [showSearch, setShowSearch] = useState(false);
   const [currentTurn, setCurrentTurn] = useState(getCurrentTurnLabel());
 
-  const lastFetchRef = useRef<number>(0);
+  const lastFetchRef = useRef<number>(savedLastFetch);
   const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const currentLocationRef = useRef<SavedLocation | null>(null);
   const requestIdRef = useRef(0);
@@ -115,7 +124,6 @@ export function WeatherProvider({ children }: { children: ReactNode }) {
         setRefreshing(true);
       } else {
         setLoading(true);
-        setWeather(null);
       }
       setError(null);
       if (isRefresh) setRefreshError(null);
@@ -125,6 +133,8 @@ export function WeatherProvider({ children }: { children: ReactNode }) {
         setWeather(data);
         setAlert(generateAlert(data));
         lastFetchRef.current = Date.now();
+        saveWeather(data);
+        saveLastFetch(lastFetchRef.current);
       } catch {
         if (reqId !== requestIdRef.current) return;
         if (isRefresh) {
